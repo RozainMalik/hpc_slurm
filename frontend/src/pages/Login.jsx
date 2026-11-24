@@ -1,31 +1,42 @@
 import { useState } from "react";
-import { ShieldCheck, Lock, User } from "lucide-react";
+import { Navigate, useNavigate } from "react-router-dom";
+import { ShieldCheck, Lock, User, Loader2 } from "lucide-react";
+import { api, auth } from "../lib/api";
 
 function Login() {
+    const navigate = useNavigate();
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
+    const [error, setError] = useState("");
+    const [busy, setBusy] = useState(false);
+
+    if (auth.isLoggedIn()) return <Navigate to="/" replace />;
 
     async function handleSubmit(e) {
-        e.preventDefault()
-
+        e.preventDefault();
+        setError("");
+        setBusy(true);
         try {
-            const response = await fetch("http://127.0.0.1:8000/admin/", {
+            const response = await fetch("http://127.0.0.1:8000/api/login/", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ username, password })
             })
-
             const data = await response.json()
 
             if (data.success) {
-                console.log("Login successful!")
-                // redirect to dashboard tomorrow
+                localStorage.setItem("access", data.access)
+                localStorage.setItem("refresh", data.refresh)
+                localStorage.setItem("username", data.username)
+                localStorage.setItem("role", "admin")
+                navigate("/dashboard")
             } else {
-                alert(data.message)
+                alert(data.error)
             }
-
-        } catch (error) {
-            alert("Could not reach server. Is the backend running?")
+        } catch (err) {
+            setError(err.status === 429 ? "Too many attempts. Wait a minute and try again." : err.message);
+        } finally {
+            setBusy(false);
         }
     }
 
@@ -34,8 +45,8 @@ function Login() {
 
             {/* Navbar */}
             <div className="flex items-center justify-between px-8 py-3 bg-slate-50 shadow-sm flex-shrink-0">
-                <a href="http://gaash.nitsri.ac.in/" className="transition duration-300 hover:scale-125"><img src="/gaash.png" className="w-10 h-10 object-contain" /></a>
-                <img src="/nit.png" className="w-10 h-10 object-contain" />
+                <a href="http://gaash.nitsri.ac.in/" className="transition duration-300 hover:scale-125"><img src="/gaash.png" className="w-10 h-10 object-contain" alt="GAASH Lab" /></a>
+                <img src="/nit.png" className="w-10 h-10 object-contain" alt="NIT Srinagar" />
             </div>
 
             {/* Main — centers the card */}
@@ -99,13 +110,15 @@ function Login() {
                         <form onSubmit={handleSubmit} className="space-y-5">
 
                             <div>
-                                <label className="block text-xs font-medium text-slate-700 mb-1.5">
+                                <label htmlFor="username" className="block text-xs font-medium text-slate-700 mb-1.5">
                                     Username
                                 </label>
                                 <div className="relative">
                                     <User className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
                                     <input
+                                        id="username"
                                         type="text"
+                                        autoComplete="username"
                                         value={username}
                                         onChange={(e) => setUsername(e.target.value)}
                                         placeholder="Enter username"
@@ -115,13 +128,15 @@ function Login() {
                             </div>
 
                             <div>
-                                <label className="block text-xs font-medium text-slate-700 mb-1.5">
+                                <label htmlFor="password" className="block text-xs font-medium text-slate-700 mb-1.5">
                                     Password
                                 </label>
                                 <div className="relative">
                                     <Lock className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
                                     <input
+                                        id="password"
                                         type="password"
+                                        autoComplete="current-password"
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
                                         placeholder="Enter password"
@@ -130,11 +145,19 @@ function Login() {
                                 </div>
                             </div>
 
+                            {error && (
+                                <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">
+                                    {error}
+                                </p>
+                            )}
+
                             <button
                                 type="submit"
-                                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl transition duration-200 shadow-md hover:shadow-lg text-sm"
+                                disabled={busy}
+                                className="w-full inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-semibold py-2.5 rounded-xl transition duration-200 shadow-md hover:shadow-lg text-sm"
                             >
-                                Login
+                                {busy && <Loader2 className="w-4 h-4 animate-spin" />}
+                                {busy ? "Logging in…" : "Login"}
                             </button>
 
                         </form>
